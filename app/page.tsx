@@ -243,7 +243,10 @@ function OfftakePreview({ offtake, dcFacilityTempC }: { offtake: Offtake; dcFaci
 
   return (
     <div className="mt-4">
-      <div className="text-sm font-medium text-slate-700 mb-2">{OFFTAKE_LABEL[offtake]}</div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-medium text-slate-700">{OFFTAKE_LABEL[offtake]}</div>
+        <div className="text-xs text-green-700 font-medium">Click image to learn more</div>
+      </div>
       <div className="rounded-lg overflow-hidden border border-slate-200 bg-white">
         <div className="flex items-center justify-center bg-[color:var(--card-bg)]">
           <button className="w-full" onClick={() => setOpen(true)} aria-label={`Open ${OFFTAKE_LABEL[offtake]} preview`}>

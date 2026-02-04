@@ -192,12 +192,101 @@ function MetricRow({
       <div className="min-w-0">
         <div className="text-sm font-semibold text-slate-800">{label}</div>
         {sub ? (
-          <div className="mt-0.5 text-xs text-slate-500 whitespace-normal break-words">
-            {sub}
-          </div>
+          <div className="mt-0.5 text-xs text-slate-500 whitespace-normal break-words">{sub}</div>
         ) : null}
       </div>
       <div className="shrink-0 text-sm font-bold text-slate-900">{value}</div>
+    </div>
+  );
+}
+// Preview image & info for selected offtake
+function OfftakePreview({ offtake, dcFacilityTempC }: { offtake: Offtake; dcFacilityTempC: number }) {
+  const IMAGES: Record<Offtake, string> = {
+    hotWater: "/images/hot-water.jpg",
+    districtHeat: "/images/district-heat.jpg",
+    waterTreatmentFO: "/images/trevi-fo.jpg",
+    atmosphericWater: "/images/uravu-awh.jpg",
+    greenhouses: "/images/greenhouse.jpg",
+    foodBrewery: "/images/food-brewery.jpg",
+    dac: "/images/dac-plant.jpg",
+  };
+
+  const src = IMAGES[offtake];
+  const [open, setOpen] = useState(false);
+
+  const METRICS: Record<Offtake, Array<{ label: string; value: string }>> = {
+    dac: [
+      { label: "CO₂ captured (approx)", value: `${fmtInt(DAC_TCO2_PER_MW_YEAR)} tCO₂ / MW·yr` },
+      { label: "Water per tCO₂", value: `${DAC_WATER_M3_PER_TCO2} m³ / tCO₂` },
+    ],
+    waterTreatmentFO: [
+      { label: "Treated water (mid)", value: `${fmtInt(TREVI_M3_PER_MW_YEAR_MID)} m³ / MW·yr` },
+    ],
+    atmosphericWater: [
+      { label: "Captured water (mid)", value: `${fmtInt(URAVU_M3_PER_MW_YEAR_MID)} m³ / MW·yr` },
+    ],
+    greenhouses: [
+      { label: "Greenhouse energy intensity", value: `${fmt1(GREENHOUSE_MWH_PER_HA_YEAR_DEFAULT)} MWh / ha·yr` },
+    ],
+    foodBrewery: [
+      { label: "Process suitability", value: dcFacilityTempC < 80 ? "May require lift for boiling" : "Suitable for many processes" },
+    ],
+    districtHeat: [
+      { label: "Homes heated (per MW·yr)", value: `${fmtInt(MWH_PER_MW_YEAR / DEFAULT_MWH_PER_HOME_YEAR)} homes / MW·yr` },
+    ],
+    hotWater: [
+      { label: "Hot water equivalence", value: "Dependent on displaced heat source" },
+    ],
+  };
+
+  const metrics = METRICS[offtake] ?? [];
+
+  return (
+    <div className="mt-4">
+      <div className="text-sm font-medium text-slate-700 mb-2">{OFFTAKE_LABEL[offtake]}</div>
+      <div className="rounded-lg overflow-hidden border border-slate-200 bg-white">
+        <div className="flex items-center justify-center bg-[color:var(--card-bg)]">
+          <button className="w-full" onClick={() => setOpen(true)} aria-label={`Open ${OFFTAKE_LABEL[offtake]} preview`}>
+            <img
+              src={src}
+              alt={OFFTAKE_LABEL[offtake]}
+              className="w-full max-h-56 object-contain"
+              style={{ display: "block" }}
+              onError={(e) => {
+                const img = e.currentTarget as HTMLImageElement;
+                img.style.display = "none";
+              }}
+            />
+          </button>
+        </div>
+      </div>
+
+      {open ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="max-w-4xl w-full rounded-lg bg-white shadow-lg overflow-hidden">
+            <div className="flex justify-between items-center p-3 border-b border-slate-200">
+              <div className="text-lg font-semibold">{OFFTAKE_LABEL[offtake]}</div>
+              <button className="text-slate-600 px-2" onClick={() => setOpen(false)} aria-label="Close preview">✕</button>
+            </div>
+            <div className="p-4 grid gap-4 md:grid-cols-2">
+              <div className="flex items-center justify-center">
+                <img src={src} alt={OFFTAKE_LABEL[offtake]} className="max-h-[60vh] w-full object-contain" />
+              </div>
+              <div>
+                <div className="text-sm text-slate-700 mb-2 font-semibold">Performance metrics</div>
+                <ul className="space-y-2">
+                  {metrics.map((m, i) => (
+                    <li key={i} className="text-sm">
+                      <span className="font-medium">{m.label}:</span> <span className="ml-2">{m.value}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-4 text-xs text-slate-500">Note: values are best-effort estimates; tune with project data.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -321,7 +410,8 @@ export default function Page() {
   // Phoenix per-capita water
   const [phxGpcd, setPhxGpcd] = useState(125);
 
-  const dcReturnTempC = 18;
+  // enforce a fixed ΔT of 12°C: return temp = supply temp - 12
+  const dcReturnTempC = Math.max(0, dcFacilityTempC - 12);
 
   const core = useMemo(() => {
     const recFrac = clamp(recoveryPct, 0, 100) / 100;
@@ -578,6 +668,14 @@ export default function Page() {
       </div>
 
       {/* Normalized Metrics */}
+      
+      {/* Offtake image preview (moved below results) */}
+      <div className="mt-6">
+        <Card title="Offtake preview">
+          <OfftakePreview offtake={offtake} dcFacilityTempC={dcFacilityTempC} />
+        </Card>
+      </div>
+
       <div className="mt-6">
         <Card title="Normalized Metrics (per MW·year)" right={<span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">Temperature-aware</span>}>
           <div className="grid gap-4 lg:grid-cols-2">

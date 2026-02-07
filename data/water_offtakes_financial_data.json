@@ -1,0 +1,65 @@
+{
+  "water_offtakes": {
+    "trevi_fo": {
+      "capex": {
+        "fo_plant": 2557664,
+        "heat_pump": 500000,
+        "total": 3057664,
+        "currency": "USD",
+        "unit": "per installation"
+      },
+      "opex": {
+        "annual_plant_opex": 256477,
+        "annual_electricity": 92076,
+        "annual_thermal_energy_without_whr": 328837,
+        "annual_thermal_energy_30c_whr": 308321,
+        "annual_thermal_energy_45c_whr": 231241,
+        "currency": "USD",
+        "unit": "per year"
+      },
+      "performance": {
+        "lcow_no_dc": 3.68,
+        "lcow_with_30c_dc": 3.60,
+        "lcow_with_45c_dc": 3.29,
+        "unit": "$/m³"
+      },
+      "source": "LCOW Case 3_Submitted_06162025.xlsx",
+      "notes": "Forward Osmosis plant with heat pump. LCOW improves with DC waste heat integration at higher temperatures."
+    },
+    "uravu_awh": {
+      "capex": {
+        "awh_unit": 500000,
+        "dry_cooler": 100000,
+        "air_cooled_chiller": 350000,
+        "total_base": 950000,
+        "total_bengaluru": 1100000,
+        "currency": "USD",
+        "unit": "per installation"
+      },
+      "opex": {
+        "estimated_annual": 126000,
+        "basis": "~12-13% of CapEx (industry standard for water systems)",
+        "currency": "USD",
+        "unit": "per year"
+      },
+      "performance": {
+        "water_production": "varies by climate and DC temperature",
+        "notes": "Phoenix, Frankfurt, and Bengaluru have different configurations"
+      },
+      "source": "Microsoft_Uravu_Performance_and_Buisness_model_calculator.xlsx",
+      "notes": "Atmospheric Water Harvesting using dehumidification. Requires dry cooler and air-cooled chiller for operation."
+    }
+  },
+  "metadata": {
+    "parsed_date": "2026-02-05",
+    "data_sources": [
+      "LCOW Case 3_Submitted_06162025.xlsx",
+      "Microsoft_Uravu_Performance_and_Buisness_model_calculator.xlsx"
+    ],
+    "assumptions": {
+      "opex_estimation": "Uravu OpEx estimated at 12% of CapEx based on industry standards for water treatment systems",
+      "lcow_reference": "Trevi LCOW values are fully annualized costs including CapEx amortization",
+      "regional_variation": "Uravu costs vary by installation location due to climate conditions"
+    }
+  }
+}

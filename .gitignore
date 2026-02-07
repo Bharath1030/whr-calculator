@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+desktop.ini
 
 # debug
 npm-debug.log*
@@ -39,3 +40,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local report extraction artifacts
+/data/_fb_tmp/
+/data/_fb_report.zip
+/data/_food_brewery_report_text.txt
+
+# embedded repo folder
+/data/**/MSProximityAnalysis/
+
+# large media not needed in repo
+/data/**/*.mp4

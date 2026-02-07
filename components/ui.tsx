@@ -1,26 +1,54 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 export function Card({
   title,
   children,
   right,
+  collapsible = false,
+  defaultExpanded = true,
+  forceExpanded,
 }: {
   title: string;
   children: React.ReactNode;
   right?: React.ReactNode;
+  collapsible?: boolean;
+  defaultExpanded?: boolean;
+  forceExpanded?: boolean;
 }) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+
+  useEffect(() => {
+    if (forceExpanded) setIsExpanded(true);
+  }, [forceExpanded]);
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-        {right ? <div>{right}</div> : null}
+      <div 
+        className={`flex items-start justify-between gap-4 ${collapsible ? 'cursor-pointer select-none' : ''}`}
+        onClick={() => collapsible && setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2 flex-1">
+          {collapsible && (
+            <svg 
+              className={`w-5 h-5 text-slate-600 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          )}
+          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+        </div>
+        {right ? <div onClick={(e) => collapsible && e.stopPropagation()}>{right}</div> : null}
       </div>
-      <div className="mt-4">{children}</div>
+      {isExpanded && <div className="mt-4">{children}</div>}
     </section>
   );
 }
+
 
 export function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (

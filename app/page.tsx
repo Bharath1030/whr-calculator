@@ -86,6 +86,75 @@ const AWH_CO2_KT_RANGE: Range = { min: 0.1, max: 0.3 };
 const GREENHOUSE_CO2_KT_PER_MWYR_RANGE: Range = { min: 0.2, max: 0.6 };
 const DISTRICT_HEAT_CO2_KT_RANGE: Range = { min: 0.1, max: 0.5 };
 
+const DEFAULT_DC_CITY = "Frankfurt";
+const DC_LOCATIONS: Record<
+  string,
+  {
+    label: string;
+    region: "US" | "Europe";
+    ambientTempC: number;
+    electricityCostPerMWh: number;
+    gridEfKgPerKwh: number;
+  }
+> = {
+  Seattle: {
+    label: "Seattle, WA",
+    region: "US",
+    ambientTempC: 12,
+    electricityCostPerMWh: 99.9,
+    gridEfKgPerKwh: 0.367,
+  },
+  Chicago: {
+    label: "Chicago, IL",
+    region: "US",
+    ambientTempC: 11,
+    electricityCostPerMWh: 118.1,
+    gridEfKgPerKwh: 0.367,
+  },
+  Phoenix: {
+    label: "Phoenix, AZ",
+    region: "US",
+    ambientTempC: 20,
+    electricityCostPerMWh: 122.3,
+    gridEfKgPerKwh: 0.367,
+  },
+  Atlanta: {
+    label: "Atlanta, GA",
+    region: "US",
+    ambientTempC: 14,
+    electricityCostPerMWh: 108.7,
+    gridEfKgPerKwh: 0.367,
+  },
+  Frankfurt: {
+    label: "Frankfurt, Germany",
+    region: "Europe",
+    ambientTempC: 12,
+    electricityCostPerMWh: 284,
+    gridEfKgPerKwh: 0.332,
+  },
+  Newport: {
+    label: "Newport, UK",
+    region: "Europe",
+    ambientTempC: 10,
+    electricityCostPerMWh: 442,
+    gridEfKgPerKwh: 0.217,
+  },
+  "Agriport A7": {
+    label: "Agriport A7, Netherlands",
+    region: "Europe",
+    ambientTempC: 11,
+    electricityCostPerMWh: 221,
+    gridEfKgPerKwh: 0.253,
+  },
+  Zaragoza: {
+    label: "Zaragoza, Spain",
+    region: "Europe",
+    ambientTempC: 13,
+    electricityCostPerMWh: 138,
+    gridEfKgPerKwh: 0.153,
+  },
+};
+
 // ============ UI Components (inline) ============
 function Card({
   title,
@@ -584,7 +653,7 @@ export default function Page() {
   // DC reporting controls
   const [dcConfig, setDcConfig] = useState<string>("Ballard");
   const [erfPercent, setErfPercent] = useState(10);
-  const [dcCity, setDcCity] = useState<string>("Ballard");
+  const [dcCity, setDcCity] = useState<string>(DEFAULT_DC_CITY);
 
   // Revenue generation pricing inputs
   const [dacMarketPrice, setDacMarketPrice] = useState(200); // $/ton
@@ -592,7 +661,12 @@ export default function Page() {
   const [waterMarketPrice, setWaterMarketPrice] = useState(4.5); // $/m³ - Phoenix water-scarce pricing
   const [waterProductionCost, setWaterProductionCost] = useState(3.5); // $/m³ - Waste Water Treatment System LCOW data ($3.29-$3.68)
   const [thermalEnergyPrice, setThermalEnergyPrice] = useState(75); // $/MWh (default district heat)
-  const [electricityCost, setElectricityCost] = useState(60); // $/MWh (Ballard facility default)
+  const [electricityCost, setElectricityCost] = useState(
+    DC_LOCATIONS[DEFAULT_DC_CITY].electricityCostPerMWh
+  );
+  const [gridEfKgPerKwh, setGridEfKgPerKwh] = useState(
+    DC_LOCATIONS[DEFAULT_DC_CITY].gridEfKgPerKwh
+  );
   const [coolingCOP, setCoolingCOP] = useState(3.3); // Coefficient of Performance for cooling systems
 
   // Savings slider
@@ -682,18 +756,9 @@ export default function Page() {
     // Would update here but need to avoid infinite loops - handle in UI instead
   }
 
+  const selectedDcLocation = DC_LOCATIONS[dcCity];
+
   // City data updated to use facilities
-  // US Metro locations with regional electricity costs and ambient temps
-  const METROS: Record<string, { location: string; ambientTempC: number; electricityCostPerMWh: number }> = {
-    Seattle: { location: "Seattle, WA", ambientTempC: 12, electricityCostPerMWh: 52 },
-    Chicago: { location: "Chicago, IL", ambientTempC: 11, electricityCostPerMWh: 73 },
-    Phoenix: { location: "Phoenix, AZ", ambientTempC: 20, electricityCostPerMWh: 64 },
-    Atlanta: { location: "Atlanta, GA", ambientTempC: 14, electricityCostPerMWh: 68 },
-    Frankfurt: { location: "Frankfurt, Germany", ambientTempC: 12, electricityCostPerMWh: 85 },
-    Newport: { location: "Newport, UK", ambientTempC: 10, electricityCostPerMWh: 95 },
-    "Agriport A7": { location: "Agriport A7, Netherlands", ambientTempC: 11, electricityCostPerMWh: 88 },
-    Zaragoza: { location: "Zaragoza, Spain", ambientTempC: 13, electricityCostPerMWh: 82 },
-  };
 
   const cityData: { [key: string]: { ambientTempC: number; coolingCostMultiplier: number } } = {
     Ballard: { ambientTempC: 10, coolingCostMultiplier: 0.95 },
@@ -2126,6 +2191,48 @@ export default function Page() {
               {inputTab === "dc" ? (
                 <>
                   <SliderRow label="IT load" value={itLoadMW} setValue={setItLoadMW} min={0} max={200} step={0.5} unit="MW" decimals={1} />
+                  <div className="mt-4">
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">
+                      DC location
+                    </label>
+                    <select
+                      value={dcCity}
+                      onChange={(e) => {
+                        const newCity = e.target.value;
+                        setDcCity(newCity);
+                        const loc = DC_LOCATIONS[newCity];
+                        if (loc) {
+                          setElectricityCost(loc.electricityCostPerMWh);
+                          setGridEfKgPerKwh(loc.gridEfKgPerKwh);
+                        }
+                      }}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    >
+                      <optgroup label="US">
+                        {Object.entries(DC_LOCATIONS)
+                          .filter(([, v]) => v.region === "US")
+                          .map(([key, v]) => (
+                            <option key={key} value={key}>
+                              {v.label} - ${v.electricityCostPerMWh}/MWh
+                            </option>
+                          ))}
+                      </optgroup>
+                      <optgroup label="Europe">
+                        {Object.entries(DC_LOCATIONS)
+                          .filter(([, v]) => v.region === "Europe")
+                          .map(([key, v]) => (
+                            <option key={key} value={key}>
+                              {v.label} - ${v.electricityCostPerMWh}/MWh
+                            </option>
+                          ))}
+                      </optgroup>
+                    </select>
+                    {selectedDcLocation ? (
+                      <div className="mt-2 text-xs text-slate-600">
+                        Electricity: ${selectedDcLocation.electricityCostPerMWh}/MWh | Grid: {Math.round(selectedDcLocation.gridEfKgPerKwh * 1000)} g CO2e/kWh
+                      </div>
+                    ) : null}
+                  </div>
                   <SliderRow label="Heat capture / recovery" value={recoveryPct} setValue={setRecoveryPct} min={0} max={100} step={1} unit="%" />
                   <SliderRow label="Operating hours per year" value={hoursPerYear} setValue={setHoursPerYear} min={6000} max={8760} step={100} unit="hrs" helper="24/7/365 = 8,760 hrs. Adjust for planned maintenance or seasonal operation." />
                   <SliderRow
@@ -2212,26 +2319,38 @@ export default function Page() {
                   onChange={(e) => {
                     const newCity = e.target.value;
                     setDcCity(newCity);
-                    const metro = METROS[newCity];
-                    if (metro) {
-                      setElectricityCost(metro.electricityCostPerMWh);
+                    const loc = DC_LOCATIONS[newCity];
+                    if (loc) {
+                      setElectricityCost(loc.electricityCostPerMWh);
+                      setGridEfKgPerKwh(loc.gridEfKgPerKwh);
                     }
                   }}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                 >
-                  <optgroup label="US Metros">
-                    <option value="Seattle">Seattle, WA - $52/MWh</option>
-                    <option value="Chicago">Chicago, IL - $73/MWh</option>
-                    <option value="Phoenix">Phoenix, AZ - $64/MWh</option>
-                    <option value="Atlanta">Atlanta, GA - $68/MWh</option>
+                  <optgroup label="US">
+                    {Object.entries(DC_LOCATIONS)
+                      .filter(([, v]) => v.region === "US")
+                      .map(([key, v]) => (
+                        <option key={key} value={key}>
+                          {v.label} - ${v.electricityCostPerMWh}/MWh
+                        </option>
+                      ))}
                   </optgroup>
                   <optgroup label="Europe">
-                    <option value="Frankfurt">Frankfurt, Germany - $85/MWh</option>
-                    <option value="Newport">Newport, UK - $95/MWh</option>
-                    <option value="Agriport A7">Agriport A7, Netherlands - $88/MWh</option>
-                    <option value="Zaragoza">Zaragoza, Spain - $82/MWh</option>
+                    {Object.entries(DC_LOCATIONS)
+                      .filter(([, v]) => v.region === "Europe")
+                      .map(([key, v]) => (
+                        <option key={key} value={key}>
+                          {v.label} - ${v.electricityCostPerMWh}/MWh
+                        </option>
+                      ))}
                   </optgroup>
                 </select>
+                {selectedDcLocation ? (
+                  <div className="mt-2 text-xs text-slate-600">
+                    Electricity: ${selectedDcLocation.electricityCostPerMWh}/MWh | Grid: {Math.round(selectedDcLocation.gridEfKgPerKwh * 1000)} g CO2e/kWh
+                  </div>
+                ) : null}
               </div>
 
               <div>
@@ -2350,7 +2469,7 @@ export default function Page() {
             value={electricityCost}
             setValue={setElectricityCost}
             min={40}
-            max={200}
+            max={500}
             step={5}
             unit="$/MWh"
             decimals={0}
@@ -3191,7 +3310,8 @@ export default function Page() {
                 <ul className="list-disc list-inside space-y-1 ml-2">
                   <li>Waste Water Treatment Systems: Industry datasheet (LCOW, CapEx verified against 2024 quotes)</li>
                   <li>Atmospheric Water Capture Systems: Mid-market estimate; validation pending</li>
-                  <li>Regional electricity costs: US EIA, EU ENTSO-E public databases (Feb 2026)</li>
+                  <li>Regional electricity costs: US EIA state commercial prices (2024, cents/kWh) and GlobalPetrolPrices.com business averages for Europe (2023-2025, USD/kWh)</li>
+                  <li>Grid carbon intensity: Ember (2026) via Our World in Data (2025 lifecycle g CO2e/kWh); US uses EIA 2023 CO2 per kWh</li>
                   <li>PUE improvements: ASHRAE Technical Committee DTG recommendations</li>
                 </ul>
                 <p><strong>Estimated/Placeholder:</strong></p>

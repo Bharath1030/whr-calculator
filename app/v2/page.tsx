@@ -5,10 +5,26 @@ import { Card, StatTile, SliderRow, MetricRow } from "../../components/ui";
 
 const WHR_INSTALLATION_COST_PER_MW = 0.25 * 1_000_000; // $250k per MW
 
+const DEFAULT_DC_CITY = "Frankfurt";
+const DC_LOCATIONS: Record<
+  string,
+  { label: string; region: "US" | "Europe"; electricityCostPerMWh: number; gridEfKgPerKwh: number }
+> = {
+  Seattle: { label: "Seattle, WA", region: "US", electricityCostPerMWh: 99.9, gridEfKgPerKwh: 0.367 },
+  Chicago: { label: "Chicago, IL", region: "US", electricityCostPerMWh: 118.1, gridEfKgPerKwh: 0.367 },
+  Phoenix: { label: "Phoenix, AZ", region: "US", electricityCostPerMWh: 122.3, gridEfKgPerKwh: 0.367 },
+  Atlanta: { label: "Atlanta, GA", region: "US", electricityCostPerMWh: 108.7, gridEfKgPerKwh: 0.367 },
+  Frankfurt: { label: "Frankfurt, Germany", region: "Europe", electricityCostPerMWh: 284, gridEfKgPerKwh: 0.332 },
+  Newport: { label: "Newport, UK", region: "Europe", electricityCostPerMWh: 442, gridEfKgPerKwh: 0.217 },
+  "Agriport A7": { label: "Agriport A7, Netherlands", region: "Europe", electricityCostPerMWh: 221, gridEfKgPerKwh: 0.253 },
+  Zaragoza: { label: "Zaragoza, Spain", region: "Europe", electricityCostPerMWh: 138, gridEfKgPerKwh: 0.153 },
+};
+
 export default function PageV2() {
   const [mw, setMw] = useState(50);
   const [hours, setHours] = useState(4000);
   const [whrCapitalCostPerMW, setWhrCapitalCostPerMW] = useState(0.25);
+  const [dcCity, setDcCity] = useState(DEFAULT_DC_CITY);
 
   const annual = mw * hours;
   const annualOperationalSavings = annual * 35; // Rough estimate: $35/MWh savings
@@ -24,6 +40,38 @@ export default function PageV2() {
 
       <div className="mt-6">
         <Card title="Inputs">
+          <div className="mb-4">
+            <label className="block text-xs font-semibold text-slate-700 mb-2">
+              DC location
+            </label>
+            <select
+              value={dcCity}
+              onChange={(e) => setDcCity(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            >
+              <optgroup label="US">
+                {Object.entries(DC_LOCATIONS)
+                  .filter(([, v]) => v.region === "US")
+                  .map(([key, v]) => (
+                    <option key={key} value={key}>
+                      {v.label} - ${v.electricityCostPerMWh}/MWh
+                    </option>
+                  ))}
+              </optgroup>
+              <optgroup label="Europe">
+                {Object.entries(DC_LOCATIONS)
+                  .filter(([, v]) => v.region === "Europe")
+                  .map(([key, v]) => (
+                    <option key={key} value={key}>
+                      {v.label} - ${v.electricityCostPerMWh}/MWh
+                    </option>
+                  ))}
+              </optgroup>
+            </select>
+            <div className="mt-2 text-xs text-slate-600">
+              Electricity: ${DC_LOCATIONS[dcCity].electricityCostPerMWh}/MWh | Grid: {Math.round(DC_LOCATIONS[dcCity].gridEfKgPerKwh * 1000)} g CO2e/kWh
+            </div>
+          </div>
           <SliderRow label="IT load (MW)" value={mw} setValue={setMw} min={0} max={200} step={1} unit="MW" />
           <SliderRow label="Operating hours" value={hours} setValue={setHours} min={0} max={8760} step={10} unit="hrs" />
         </Card>

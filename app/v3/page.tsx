@@ -96,21 +96,107 @@ const AWH_CO2_KT_RANGE: Range = { min: 0.1, max: 0.3 };
 const GREENHOUSE_CO2_KT_PER_MWYR_RANGE: Range = { min: 0.2, max: 0.6 };
 const DISTRICT_HEAT_CO2_KT_RANGE: Range = { min: 0.1, max: 0.5 };
 
+// Emissions factors (placeholder defaults; replace with site-specific values)
+const GRID_EF_KG_PER_KWH_DEFAULT = 0.4;
+const GAS_EF_KG_PER_KWH_DEFAULT = 0.2;
+
+const DEFAULT_DC_CITY = "Frankfurt";
+
+const DC_LOCATIONS: Record<
+  string,
+  {
+    label: string;
+    region: "US" | "Europe";
+    ambientTempC: number;
+    electricityCostPerMWh: number;
+    gridEfKgPerKwh: number;
+  }
+> = {
+  Seattle: {
+    label: "Seattle, WA",
+    region: "US",
+    ambientTempC: 12,
+    electricityCostPerMWh: 99.9,
+    gridEfKgPerKwh: 0.367,
+  },
+  Chicago: {
+    label: "Chicago, IL",
+    region: "US",
+    ambientTempC: 11,
+    electricityCostPerMWh: 118.1,
+    gridEfKgPerKwh: 0.367,
+  },
+  Phoenix: {
+    label: "Phoenix, AZ",
+    region: "US",
+    ambientTempC: 20,
+    electricityCostPerMWh: 122.3,
+    gridEfKgPerKwh: 0.367,
+  },
+  Atlanta: {
+    label: "Atlanta, GA",
+    region: "US",
+    ambientTempC: 14,
+    electricityCostPerMWh: 108.7,
+    gridEfKgPerKwh: 0.367,
+  },
+  Frankfurt: {
+    label: "Frankfurt, Germany",
+    region: "Europe",
+    ambientTempC: 12,
+    electricityCostPerMWh: 284,
+    gridEfKgPerKwh: 0.332,
+  },
+  Newport: {
+    label: "Newport, UK",
+    region: "Europe",
+    ambientTempC: 10,
+    electricityCostPerMWh: 442,
+    gridEfKgPerKwh: 0.217,
+  },
+  "Agriport A7": {
+    label: "Agriport A7, Netherlands",
+    region: "Europe",
+    ambientTempC: 11,
+    electricityCostPerMWh: 221,
+    gridEfKgPerKwh: 0.253,
+  },
+  Zaragoza: {
+    label: "Zaragoza, Spain",
+    region: "Europe",
+    ambientTempC: 13,
+    electricityCostPerMWh: 138,
+    gridEfKgPerKwh: 0.153,
+  },
+};
+
 // ============ UI Components (inline) ============
 function Card({
   title,
   children,
   right,
   collapsible = false,
-  defaultExpanded = true,
+  defaultExpanded = false,
+  forceExpanded,
+  tooltip,
 }: {
   title: string;
   children: React.ReactNode;
   right?: React.ReactNode;
   collapsible?: boolean;
   defaultExpanded?: boolean;
+  forceExpanded?: boolean;
+  tooltip?: string;
 }) {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [isExpanded, setIsExpanded] = useState(
+    collapsible ? defaultExpanded : true
+  );
+
+  useEffect(() => {
+    if (collapsible && typeof forceExpanded === "boolean") {
+      setIsExpanded(forceExpanded);
+    }
+  }, [forceExpanded]);
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -118,7 +204,7 @@ function Card({
         className={`flex items-start justify-between gap-4 ${collapsible ? 'cursor-pointer select-none' : ''}`}
         onClick={() => collapsible && setIsExpanded(!isExpanded)}
       >
-        <div className="flex items-center gap-2 flex-1">
+        <div className="flex items-center gap-2 flex-1" title={tooltip}>
           {collapsible && (
             <svg 
               className={`w-5 h-5 text-slate-600 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
@@ -130,6 +216,22 @@ function Card({
             </svg>
           )}
           <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+          {tooltip ? (
+            <svg
+              className="ml-1 h-4 w-4 text-slate-500"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path strokeLinecap="round" d="M12 10v6" />
+              <circle cx="12" cy="7" r="1" fill="currentColor" stroke="none" />
+            </svg>
+          ) : null}
         </div>
         {right ? <div onClick={(e) => collapsible && e.stopPropagation()}>{right}</div> : null}
       </div>
@@ -581,7 +683,6 @@ export default function Page() {
 
   useEffect(() => {
     const update = () => setActiveSection(window.location.hash.replace("#", ""));
-    update();
     window.addEventListener("hashchange", update);
     return () => window.removeEventListener("hashchange", update);
   }, []);
@@ -596,7 +697,7 @@ export default function Page() {
   // DC reporting controls
   const [dcConfig, setDcConfig] = useState<string>("Ballard");
   const [erfPercent, setErfPercent] = useState(10);
-  const [dcCity, setDcCity] = useState<string>("Ballard");
+  const [dcCity, setDcCity] = useState<string>(DEFAULT_DC_CITY);
 
   // Revenue generation pricing inputs
   const [dacMarketPrice, setDacMarketPrice] = useState(200); // $/ton
@@ -604,7 +705,12 @@ export default function Page() {
   const [waterMarketPrice, setWaterMarketPrice] = useState(4.5); // $/m³ - Phoenix water-scarce pricing
   const [waterProductionCost, setWaterProductionCost] = useState(3.5); // $/m³ - Waste Water Treatment System LCOW data ($3.29-$3.68)
   const [thermalEnergyPrice, setThermalEnergyPrice] = useState(75); // $/MWh (default district heat)
-  const [electricityCost, setElectricityCost] = useState(60); // $/MWh (Ballard facility default)
+  const [electricityCost, setElectricityCost] = useState(
+    DC_LOCATIONS[DEFAULT_DC_CITY].electricityCostPerMWh
+  );
+  const [gridEfKgPerKwh, setGridEfKgPerKwh] = useState(
+    DC_LOCATIONS[DEFAULT_DC_CITY].gridEfKgPerKwh
+  );
   const [coolingCOP, setCoolingCOP] = useState(3.3); // Coefficient of Performance for cooling systems
 
   // Savings slider
@@ -694,18 +800,7 @@ export default function Page() {
     // Would update here but need to avoid infinite loops - handle in UI instead
   }
 
-  // City data updated to use facilities
-  // US Metro locations with regional electricity costs and ambient temps
-  const METROS: Record<string, { location: string; ambientTempC: number; electricityCostPerMWh: number }> = {
-    Seattle: { location: "Seattle, WA", ambientTempC: 12, electricityCostPerMWh: 52 },
-    Chicago: { location: "Chicago, IL", ambientTempC: 11, electricityCostPerMWh: 73 },
-    Phoenix: { location: "Phoenix, AZ", ambientTempC: 20, electricityCostPerMWh: 64 },
-    Atlanta: { location: "Atlanta, GA", ambientTempC: 14, electricityCostPerMWh: 68 },
-    Frankfurt: { location: "Frankfurt, Germany", ambientTempC: 12, electricityCostPerMWh: 85 },
-    Newport: { location: "Newport, UK", ambientTempC: 10, electricityCostPerMWh: 95 },
-    "Agriport A7": { location: "Agriport A7, Netherlands", ambientTempC: 11, electricityCostPerMWh: 88 },
-    Zaragoza: { location: "Zaragoza, Spain", ambientTempC: 13, electricityCostPerMWh: 82 },
-  };
+  const selectedDcLocation = DC_LOCATIONS[dcCity];
 
   const cityData: { [key: string]: { ambientTempC: number; coolingCostMultiplier: number } } = {
     Ballard: { ambientTempC: 10, coolingCostMultiplier: 0.95 },
@@ -789,6 +884,29 @@ export default function Page() {
         return null;
     }
   }, [offtake, core.recoverableHeatMW, outputs]);
+
+  const emissionsByScope = useMemo(() => {
+    const erf = erfPercent / 100;
+    const energySavedMWh = core.recoverableHeatMW * erf * hoursPerYear * (1 / coolingCOP);
+    const gridEf = isFinite(gridEfKgPerKwh)
+      ? gridEfKgPerKwh
+      : GRID_EF_KG_PER_KWH_DEFAULT;
+    const scope2 = Math.max(0, energySavedMWh * gridEf);
+    const isThermalOfftake = ["hotWater", "districtHeat", "greenhouses", "foodBrewery"].includes(offtake);
+    const scope1 = isThermalOfftake
+      ? Math.max(0, core.annualHeatMWh * GAS_EF_KG_PER_KWH_DEFAULT)
+      : 0;
+    let scope3 = 0;
+    if (!isThermalOfftake && potentialCO2) {
+      if ((potentialCO2 as any).kind === "dac") {
+        scope3 = Math.max(0, (potentialCO2 as any).tco2 || 0);
+      } else {
+        scope3 = Math.max(0, ((potentialCO2 as any).midKt || 0) * 1000);
+      }
+    }
+    const total = scope1 + scope2 + scope3;
+    return { scope1, scope2, scope3, total };
+  }, [offtake, core.annualHeatMWh, core.recoverableHeatMW, erfPercent, hoursPerYear, coolingCOP, potentialCO2, gridEfKgPerKwh]);
 
   const offtakeCosts = useMemo(() => {
     const rows = (offData && (offData as any).raw_rows) || [];
@@ -2120,9 +2238,10 @@ export default function Page() {
           <div id="whr-results">
             <Card
               title={`Results — ${OFFTAKE_LABEL[offtake]}`}
+              tooltip="Outputs for the selected offtake; informs DCE, SDD, and Investment on feasibility and scale."
               collapsible={true}
               defaultExpanded={true}
-              forceExpanded={activeSection === "whr-results"}
+              forceExpanded={activeSection === "whr-results" ? true : undefined}
             >
             <div className="grid gap-4">
               <div className="rounded-xl border border-slate-200 bg-white p-4 min-w-0">
@@ -2243,12 +2362,59 @@ export default function Page() {
                     )}
                   </div>
                 ) : null}
+
+                <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <summary className="summary-no-marker inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-900">
+                    <span className="summary-caret" aria-hidden="true">&gt;</span>
+                    <span className="inline-flex items-center gap-1 whitespace-nowrap" title="Annual Scope 1/2/3 split based on current inputs. Defaults use placeholder emission factors; replace with site-specific values.">
+                      Annual emissions impact (scope split)
+                      <svg
+                        className="h-4 w-4 text-slate-500"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                        aria-hidden="true"
+                      >
+                        <circle cx="12" cy="12" r="9" />
+                        <path strokeLinecap="round" d="M12 10v6" />
+                        <circle cx="12" cy="7" r="1" fill="currentColor" stroke="none" />
+                      </svg>
+                    </span>
+                  </summary>
+                  <div className="mt-2 text-xs text-slate-600">
+                    Note: Default factors are placeholders; replace with site-specific values.
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    <MetricRow
+                      label="Scope 1 (on-site fuel displacement)"
+                      value={`${fmtInt(emissionsByScope.scope1)} tCO₂e/yr`}
+                      sub="Placeholder gas EF 0.20 kgCO₂e/kWh; replace with site data."
+                    />
+                    <MetricRow
+                      label="Scope 2 (electricity savings)"
+                      value={`${fmtInt(emissionsByScope.scope2)} tCO₂e/yr`}
+                      sub="Placeholder grid EF 0.40 kgCO₂e/kWh; replace with site data."
+                    />
+                    <MetricRow
+                      label="Scope 3 (downstream/abatement)"
+                      value={`${fmtInt(emissionsByScope.scope3)} tCO₂e/yr`}
+                      sub="Estimated from offtake abatement range when applicable."
+                    />
+                    <MetricRow
+                      label="Total (Scopes 1–3)"
+                      value={`${fmtInt(emissionsByScope.total)} tCO₂e/yr`}
+                    />
+                  </div>
+                </details>
               </div>
             </div>
           </Card>
           </div>
 
-          <Card title="Offtake preview">
+          <Card title="Offtake preview" defaultExpanded={true}>
             <OfftakePreview 
               offtake={offtake} 
               dcFacilityTempC={dcReturnTempC} 
@@ -2276,9 +2442,10 @@ export default function Page() {
           <div id="whr-inputs">
             <Card
               title="Inputs"
+              tooltip="Key assumptions and site inputs; informs DCE and SDD on model parameters."
               collapsible={true}
               defaultExpanded={true}
-              forceExpanded={activeSection === "whr-inputs"}
+              forceExpanded={activeSection === "whr-inputs" ? true : undefined}
             >
             <div>
               <div className="flex gap-2 mb-3">
@@ -2325,15 +2492,60 @@ export default function Page() {
                     decimals={1}
                     helper={enableGigawattScale ? "GW-scale: 1,000 MW max" : "Near-term: 100 MW max"}
                   />
+                  <div className="mt-4">
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">
+                      DC location
+                    </label>
+                    <select
+                      value={dcCity}
+                      onChange={(e) => {
+                        const newCity = e.target.value;
+                        setDcCity(newCity);
+                        const loc = DC_LOCATIONS[newCity];
+                        if (loc) {
+                          setElectricityCost(loc.electricityCostPerMWh);
+                          setGridEfKgPerKwh(loc.gridEfKgPerKwh);
+                        }
+                      }}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                    >
+                      <optgroup label="US">
+                        {Object.entries(DC_LOCATIONS)
+                          .filter(([, v]) => v.region === "US")
+                          .map(([key, v]) => (
+                            <option key={key} value={key}>
+                              {v.label} - ${v.electricityCostPerMWh}/MWh
+                            </option>
+                          ))}
+                      </optgroup>
+                      <optgroup label="Europe">
+                        {Object.entries(DC_LOCATIONS)
+                          .filter(([, v]) => v.region === "Europe")
+                          .map(([key, v]) => (
+                            <option key={key} value={key}>
+                              {v.label} - ${v.electricityCostPerMWh}/MWh
+                            </option>
+                          ))}
+                      </optgroup>
+                    </select>
+                    {selectedDcLocation ? (
+                      <div className="mt-2 text-xs text-slate-600">
+                        Electricity: ${selectedDcLocation.electricityCostPerMWh}/MWh | Grid: {Math.round(selectedDcLocation.gridEfKgPerKwh * 1000)} g CO2e/kWh
+                      </div>
+                    ) : null}
+                  </div>
                   <SliderRow
                     label="ERF % (energy reuse fraction)"
-                    value={recoveryPct}
-                    setValue={setRecoveryPct}
+                    value={erfPercent}
+                    setValue={(n) => {
+                      setErfPercent(n);
+                      setRecoveryPct(n);
+                    }}
                     min={0}
                     max={100}
                     step={1}
                     unit="%"
-                    helper="Germany EnEfG targets ERF of 10% by 2026 and 20% by 2028 for qualifying data centers."
+                    helper="Linked to EED Reporting ERF. Germany EnEfG targets 10% by 2026 and 20% by 2028."
                   />
                   <SliderRow label="Operating hours per year" value={hoursPerYear} setValue={setHoursPerYear} min={6000} max={8760} step={100} unit="hrs" helper="24/7/365 = 8,760 hrs. Adjust for planned maintenance or seasonal operation." />
                   <SliderRow
@@ -2377,6 +2589,7 @@ export default function Page() {
       <div className="mt-6">
         <Card
           title="PUE/WUE Performance and EED Reporting"
+          tooltip="Informs SDD and DC operations on immediate efficiency and EED reporting impact."
           right={<span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">PUE / WUE / ERF / ERE</span>}
           collapsible={true}
         >
@@ -2420,26 +2633,38 @@ export default function Page() {
                   onChange={(e) => {
                     const newCity = e.target.value;
                     setDcCity(newCity);
-                    const metro = METROS[newCity];
-                    if (metro) {
-                      setElectricityCost(metro.electricityCostPerMWh);
+                    const loc = DC_LOCATIONS[newCity];
+                    if (loc) {
+                      setElectricityCost(loc.electricityCostPerMWh);
+                      setGridEfKgPerKwh(loc.gridEfKgPerKwh);
                     }
                   }}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                 >
-                  <optgroup label="US Metros">
-                    <option value="Seattle">Seattle, WA - $52/MWh</option>
-                    <option value="Chicago">Chicago, IL - $73/MWh</option>
-                    <option value="Phoenix">Phoenix, AZ - $64/MWh</option>
-                    <option value="Atlanta">Atlanta, GA - $68/MWh</option>
+                  <optgroup label="US">
+                    {Object.entries(DC_LOCATIONS)
+                      .filter(([, v]) => v.region === "US")
+                      .map(([key, v]) => (
+                        <option key={key} value={key}>
+                          {v.label} - ${v.electricityCostPerMWh}/MWh
+                        </option>
+                      ))}
                   </optgroup>
                   <optgroup label="Europe">
-                    <option value="Frankfurt">Frankfurt, Germany - $85/MWh</option>
-                    <option value="Newport">Newport, UK - $95/MWh</option>
-                    <option value="Agriport A7">Agriport A7, Netherlands - $88/MWh</option>
-                    <option value="Zaragoza">Zaragoza, Spain - $82/MWh</option>
+                    {Object.entries(DC_LOCATIONS)
+                      .filter(([, v]) => v.region === "Europe")
+                      .map(([key, v]) => (
+                        <option key={key} value={key}>
+                          {v.label} - ${v.electricityCostPerMWh}/MWh
+                        </option>
+                      ))}
                   </optgroup>
                 </select>
+                {selectedDcLocation ? (
+                  <div className="mt-2 text-xs text-slate-600">
+                    Electricity: ${selectedDcLocation.electricityCostPerMWh}/MWh | Grid: {Math.round(selectedDcLocation.gridEfKgPerKwh * 1000)} g CO2e/kWh
+                  </div>
+                ) : null}
               </div>
 
               <div>
@@ -2473,7 +2698,18 @@ export default function Page() {
               <div className="text-xs font-semibold text-slate-900 mb-0.5">EED Reporting</div>
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">Energy Reuse Fraction (ERF)</label>
-                <SliderRow label="ERF %" value={erfPercent} setValue={setErfPercent} min={0} max={100} step={5} unit="%" />
+                <SliderRow
+                  label="ERF %"
+                  value={erfPercent}
+                  setValue={(n) => {
+                    setErfPercent(n);
+                    setRecoveryPct(n);
+                  }}
+                  min={0}
+                  max={100}
+                  step={5}
+                  unit="%"
+                />
               </div>
               <MetricRow
                 label="ERE"
@@ -2526,8 +2762,9 @@ export default function Page() {
       <div className="mt-6" id="whr-savings">
         <Card
           title="DC Operational Savings and WHR Provisioning"
+          tooltip="Informs DC operations and Investment on operational savings and WHR provisioning costs."
           collapsible={true}
-          forceExpanded={activeSection === "whr-savings"}
+          forceExpanded={activeSection === "whr-savings" ? true : undefined}
         >
           <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
             {/* LEFT: Savings */}
@@ -2558,7 +2795,7 @@ export default function Page() {
             value={electricityCost}
             setValue={setElectricityCost}
             min={40}
-            max={200}
+            max={500}
             step={5}
             unit="$/MWh"
             decimals={0}
@@ -2616,6 +2853,11 @@ export default function Page() {
               sub="Scales with recoverable heat MW and ERF/PUE settings."
             />
             <MetricRow
+              label="Scope 2 emissions impact"
+              value={`${fmtInt(emissionsByScope.scope2)} tCO₂e/yr`}
+              sub="Uses placeholder grid EF 0.40 kgCO₂e/kWh."
+            />
+            <MetricRow
               label="Reference install cost (legacy)"
               value={`$${fmtInt(WHR_INSTALLATION_COST_PER_MW)}/MW`}
               sub="Kept as reference constant; slider above drives payback tiles."
@@ -2664,8 +2906,9 @@ export default function Page() {
       <div className="mt-6" id="whr-piping">
         <Card
           title="Heat Delivery Infrastructure & Piping Costs"
+          tooltip="Informs SDD, engineering, and CIF on piping scope, complexity, and delivery costs."
           collapsible={true}
-          forceExpanded={activeSection === "whr-piping"}
+          forceExpanded={activeSection === "whr-piping" ? true : undefined}
         >
           <div className="grid gap-4 md:grid-cols-2 items-start">
             <div>
@@ -2736,8 +2979,9 @@ export default function Page() {
       <div className="mt-6" id="whr-revenue">
         <Card
           title="WHR Offtake Revenue Generation Potential"
+          tooltip="Informs Investment and CIF on revenue potential, pricing assumptions, and upside."
           collapsible={true}
-          forceExpanded={activeSection === "whr-revenue"}
+          forceExpanded={activeSection === "whr-revenue" ? true : undefined}
         >
           <div className="space-y-4">
             <div className="mb-4">
@@ -3006,8 +3250,9 @@ export default function Page() {
       <div className="mt-6" id="whr-ownership">
         <Card
           title="Ownership Model & Financial Comparison"
+          tooltip="Informs Investment, CIF, and CELA on ownership structures and financial tradeoffs."
           collapsible={true}
-          forceExpanded={activeSection === "whr-ownership"}
+          forceExpanded={activeSection === "whr-ownership" ? true : undefined}
         >
           <div className="mb-4">
             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -3201,9 +3446,10 @@ export default function Page() {
       <div className="mt-6" id="whr-performance">
         <Card
           title="Normalized Performance & Impact Metrics"
+          tooltip="Informs DCE and sustainability teams on normalized impacts across offtakes."
           right={<span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">Temperature-aware</span>}
           collapsible={true}
-          forceExpanded={activeSection === "whr-performance"}
+          forceExpanded={activeSection === "whr-performance" ? true : undefined}
         >
           {/* CO2 Chart - Top Priority */}
           <div className="mb-6 rounded-xl border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 p-4">
@@ -3286,9 +3532,22 @@ export default function Page() {
       <div className="mt-8" id="whr-regulatory">
         <Card
           title="Regulatory Context: WHR Mandates (EMEA)"
+          tooltip="Informs CELA and compliance on WHR mandates and policy context."
           collapsible={true}
-          forceExpanded={activeSection === "whr-regulatory"}
+          forceExpanded={activeSection === "whr-regulatory" ? true : undefined}
         >
+          <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="text-xs font-semibold text-slate-900">Emissions scope summary (annual)</div>
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+              <MetricRow label="Scope 1" value={`${fmtInt(emissionsByScope.scope1)} tCO₂e/yr`} />
+              <MetricRow label="Scope 2" value={`${fmtInt(emissionsByScope.scope2)} tCO₂e/yr`} />
+              <MetricRow label="Scope 3" value={`${fmtInt(emissionsByScope.scope3)} tCO₂e/yr`} />
+              <MetricRow label="Total" value={`${fmtInt(emissionsByScope.total)} tCO₂e/yr`} />
+            </div>
+            <div className="mt-2 text-xs text-slate-600">
+              Scope classification depends on ownership and reporting boundaries; replace placeholder factors with site-specific values.
+            </div>
+          </div>
           <div
             className="grid gap-4 md:grid-cols-[1.1fr_0.9fr] items-center cursor-pointer"
             onClick={() => setShowRegulation(true)}
@@ -3326,8 +3585,9 @@ export default function Page() {
       <div className="mt-8" id="whr-proximity">
         <Card
           title="WHR Offtake Proximity: Sites for Opportunities"
+          tooltip="Informs SDD and site selection on nearby offtake opportunities."
           collapsible={true}
-          forceExpanded={activeSection === "whr-proximity"}
+          forceExpanded={activeSection === "whr-proximity" ? true : undefined}
         >
           <div className="space-y-3 text-sm text-slate-700">
             <p>
@@ -3366,8 +3626,9 @@ export default function Page() {
       <div className="mt-8" id="whr-assumptions">
         <Card
           title="WHR Calculator Assumptions & Methodology"
+          tooltip="Informs all stakeholders on modeling assumptions and methodology."
           collapsible={true}
-          forceExpanded={activeSection === "whr-assumptions"}
+          forceExpanded={activeSection === "whr-assumptions" ? true : undefined}
         >
           <div className="space-y-4 text-sm text-slate-700">
             
@@ -3461,7 +3722,8 @@ export default function Page() {
                 <ul className="list-disc list-inside space-y-1 ml-2">
                   <li>Waste Water Treatment Systems: Industry datasheet (LCOW, CapEx verified against 2024 quotes)</li>
                   <li>Atmospheric Water Capture Systems: Mid-market estimate; validation pending</li>
-                  <li>Regional electricity costs: US EIA, EU ENTSO-E public databases (Feb 2026)</li>
+                  <li>Regional electricity costs: US EIA state commercial prices (2024, cents/kWh) and GlobalPetrolPrices.com business averages for Europe (2023-2025, USD/kWh)</li>
+                  <li>Grid carbon intensity: Ember (2026) via Our World in Data (2025 lifecycle g CO2e/kWh); US uses EIA 2023 CO2 per kWh</li>
                   <li>PUE improvements: ASHRAE Technical Committee DTG recommendations</li>
                 </ul>
                 <p><strong>Estimated/Placeholder:</strong></p>
@@ -3482,8 +3744,9 @@ export default function Page() {
       <div className="mt-8" id="whr-faq">
         <Card
           title="WHR Offtakes FAQ"
+          tooltip="Quick guidance for all stakeholders and non-technical viewers."
           collapsible={true}
-          forceExpanded={activeSection === "whr-faq"}
+          forceExpanded={activeSection === "whr-faq" ? true : undefined}
         >
           <div className="space-y-4">
             <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">

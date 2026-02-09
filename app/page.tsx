@@ -1,8 +1,8 @@
 ﻿"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import offData from "../data/offtaker_costs.json";
-import dcConfigData from "../data/dc_cooling_config.json";
+import offData from "../../data/offtaker_costs.json";
+import dcConfigData from "../../data/dc_cooling_config.json";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
@@ -23,6 +23,16 @@ const OFFTAKE_LABEL: Record<Offtake, string> = {
   greenhouses: "Greenhouses & agriculture",
   foodBrewery: "Food & brewery industry",
   dac: "Direct Air Capture (DAC)",
+};
+
+const OFFTAKE_HELP: Record<Offtake, string> = {
+  hotWater: "Offsets conventional heating; stabilizes heat recovery value for the DC; supports local hot-water needs.",
+  districtHeat: "Supplies low-carbon heat to buildings; improves DC efficiency economics; lowers community heating emissions.",
+  waterTreatmentFO: "Provides process heat for treatment; creates operating savings for the DC; expands clean-water capacity locally.",
+  atmosphericWater: "Enables water capture systems; reduces DC heat rejection costs; adds resilient community water supply.",
+  greenhouses: "Supports year-round crops; raises DC heat utilization; strengthens local food systems and jobs.",
+  foodBrewery: "Feeds process heat demand; increases DC heat monetization; reduces industrial fuel use nearby.",
+  dac: "Powers CO2 removal; boosts DC climate impact; delivers community-scale carbon benefits.",
 };
 
 type Range = { min: number; max: number };
@@ -162,22 +172,28 @@ function Card({
   right,
   collapsible = false,
   defaultExpanded = true,
+  titleClassName,
+  tooltip,
+  headerClassName,
 }: {
   title: string;
   children: React.ReactNode;
   right?: React.ReactNode;
   collapsible?: boolean;
   defaultExpanded?: boolean;
+  titleClassName?: string;
+  tooltip?: string;
+  headerClassName?: string;
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div 
-        className={`flex items-start justify-between gap-4 ${collapsible ? 'cursor-pointer select-none' : ''}`}
+        className={`flex items-start justify-between gap-4 ${collapsible ? 'cursor-pointer select-none' : ''} ${headerClassName ?? ''}`}
         onClick={() => collapsible && setIsExpanded(!isExpanded)}
       >
-        <div className="flex items-center gap-2 flex-1">
+        <div className="flex items-center gap-2 flex-1" title={tooltip}>
           {collapsible && (
             <svg 
               className={`w-5 h-5 text-slate-600 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
@@ -188,11 +204,28 @@ function Card({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           )}
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+          <h2 className={`text-base font-semibold text-slate-900 ${titleClassName ?? ""}`}>
+            {title}
+          </h2>
+          {tooltip ? (
+            <svg
+              className="ml-1 h-4 w-4 text-slate-500"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8h.01M11 12h1v4h1" />
+            </svg>
+          ) : null}
         </div>
         {right ? <div onClick={(e) => collapsible && e.stopPropagation()}>{right}</div> : null}
       </div>
-      {isExpanded && <div className="mt-4">{children}</div>}
+      {isExpanded && children ? <div className="mt-4">{children}</div> : null}
     </section>
   );
 }
@@ -637,6 +670,11 @@ export default function Page() {
   const [activeSection, setActiveSection] = useState<string>("");
 
   useEffect(() => {
+    if (window.location.hash) {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      setActiveSection("");
+      window.scrollTo({ top: 0 });
+    }
     const update = () => setActiveSection(window.location.hash.replace("#", ""));
     update();
     window.addEventListener("hashchange", update);
@@ -2014,7 +2052,6 @@ export default function Page() {
               title={`Results — ${OFFTAKE_LABEL[offtake]}`}
               collapsible={true}
               defaultExpanded={true}
-              forceExpanded={activeSection === "whr-results"}
             >
             <div className="grid gap-4">
               <div className="rounded-xl border border-slate-200 bg-white p-4 min-w-0">
@@ -2151,18 +2188,33 @@ export default function Page() {
 
         {/* RIGHT COLUMN: Offtake Selector + Inputs */}
         <div className="space-y-6">
-          <Card title="Offtake application" right={<span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">V1</span>}>
-            <select
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-              value={offtake}
-              onChange={(e) => setOfftake(e.target.value as Offtake)}
-            >
-              {Object.entries(OFFTAKE_LABEL).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
+          <Card
+            title="WHR Offtake Application"
+            titleClassName="whitespace-nowrap"
+            tooltip="Hover this card to see how each offtake helps the offtaker, the DC, and the community."
+          >
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-700">
+                Choose an offtake application
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                value={offtake}
+                onChange={(e) => setOfftake(e.target.value as Offtake)}
+              >
+                {Object.entries(OFFTAKE_LABEL).map(([k, v]) => {
+                  const key = k as Offtake;
+                  return (
+                    <option key={k} value={k} title={OFFTAKE_HELP[key]}>
+                      {v}
+                    </option>
+                  );
+                })}
+              </select>
+              <div className="text-[11px] leading-snug text-slate-600">
+                Note: {OFFTAKE_HELP[offtake]}
+              </div>
+            </div>
           </Card>
 
           <div id="whr-inputs">
@@ -2170,7 +2222,6 @@ export default function Page() {
               title="Inputs"
               collapsible={true}
               defaultExpanded={true}
-              forceExpanded={activeSection === "whr-inputs"}
             >
             <div>
               <div className="flex gap-2 mb-3">
@@ -2438,7 +2489,6 @@ export default function Page() {
         <Card
           title="DC Operational Savings and WHR Provisioning"
           collapsible={true}
-          forceExpanded={activeSection === "whr-savings"}
         >
           <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
             {/* LEFT: Savings */}
@@ -2576,7 +2626,6 @@ export default function Page() {
         <Card
           title="Heat Delivery Infrastructure & Piping Costs"
           collapsible={true}
-          forceExpanded={activeSection === "whr-piping"}
         >
           <div className="grid gap-4 md:grid-cols-2 items-start">
             <div>
@@ -2648,7 +2697,6 @@ export default function Page() {
         <Card
           title="WHR Offtake Revenue Generation Potential"
           collapsible={true}
-          forceExpanded={activeSection === "whr-revenue"}
         >
           <div className="mb-4">
             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -2900,7 +2948,6 @@ export default function Page() {
         <Card
           title="Ownership Model & Financial Comparison"
           collapsible={true}
-          forceExpanded={activeSection === "whr-ownership"}
         >
           <div className="mb-4">
             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -3096,7 +3143,6 @@ export default function Page() {
           title="Normalized Performance & Impact Metrics"
           right={<span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">Temperature-aware</span>}
           collapsible={true}
-          forceExpanded={activeSection === "whr-performance"}
         >
           {/* CO2 Chart - Top Priority */}
           <div className="mb-6 rounded-xl border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 p-4">
@@ -3176,7 +3222,6 @@ export default function Page() {
         <Card
           title="WHR Offtake Proximity: Sites for Opportunities"
           collapsible={true}
-          forceExpanded={activeSection === "whr-proximity"}
         >
           <div className="space-y-3 text-sm text-slate-700">
             <p>
@@ -3216,7 +3261,6 @@ export default function Page() {
         <Card
           title="WHR Calculator Assumptions & Methodology"
           collapsible={true}
-          forceExpanded={activeSection === "whr-assumptions"}
         >
           <div className="space-y-4 text-sm text-slate-700">
             
@@ -3310,7 +3354,7 @@ export default function Page() {
                 <ul className="list-disc list-inside space-y-1 ml-2">
                   <li>Waste Water Treatment Systems: Industry datasheet (LCOW, CapEx verified against 2024 quotes)</li>
                   <li>Atmospheric Water Capture Systems: Mid-market estimate; validation pending</li>
-                  <li>Regional electricity costs: US EIA state commercial prices (2024, cents/kWh) and GlobalPetrolPrices.com business averages for Europe (2023-2025, USD/kWh)</li>
+                  <li>Regional electricity costs: GlobalPetrolPrices.com business averages (2023-2025, USD/kWh)</li>
                   <li>Grid carbon intensity: Ember (2026) via Our World in Data (2025 lifecycle g CO2e/kWh); US uses EIA 2023 CO2 per kWh</li>
                   <li>PUE improvements: ASHRAE Technical Committee DTG recommendations</li>
                 </ul>
@@ -3333,7 +3377,6 @@ export default function Page() {
         <Card
           title="WHR Offtakes FAQ"
           collapsible={true}
-          forceExpanded={activeSection === "whr-faq"}
         >
           <div className="space-y-4">
             <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">

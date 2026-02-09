@@ -1,4 +1,5 @@
-﻿"use client";
+﻿
+"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import offData from "../data/offtaker_costs.json";
@@ -6,8 +7,51 @@ import dcConfigData from "../data/dc_cooling_config.json";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
+type Offtake =
+  | "hotWater"
+  | "districtHeat"
+  | "waterTreatmentFO"
+  | "atmosphericWater"
+  | "greenhouses"
+  | "foodBrewery"
+  | "dac";
+
+const OFFTAKE_LABEL: Record<Offtake, string> = {
+  hotWater: "Hot water (baseline equivalence)",
+  districtHeat: "District heat / heated homes",
+  waterTreatmentFO: "Waste Water Treatment System (FO)",
+  atmosphericWater: "Atmospheric Water Capture System",
+  greenhouses: "Greenhouses & agriculture",
+  foodBrewery: "Food & brewery industry",
+  dac: "Direct Air Capture (DAC)",
+};
+
+const OFFTAKE_HELP: Record<Offtake, string> = {
+  hotWater: "Offsets conventional heating; stabilizes heat recovery value for the DC; supports local hot-water needs.",
+  districtHeat: "Supplies low-carbon heat to buildings; improves DC efficiency economics; lowers community heating emissions.",
+  waterTreatmentFO: "Provides process heat for treatment; creates operating savings for the DC; expands clean-water capacity locally.",
+  atmosphericWater: "Enables water capture systems; reduces DC heat rejection costs; adds resilient community water supply.",
+  greenhouses: "Supports year-round crops; raises DC heat utilization; strengthens local food systems and jobs.",
+  foodBrewery: "Feeds process heat demand; increases DC heat monetization; reduces industrial fuel use nearby.",
+  dac: "Powers CO2 removal; boosts DC climate impact; delivers community-scale carbon benefits.",
+};
+
+type Range = { min: number; max: number };
+
+const MWH_PER_MW_YEAR = 8760;
+const L_PER_M3 = 1000;
+const GAL_TO_M3 = 0.00378541;
+
+const DAC_TCO2_PER_MW_YEAR = 4550;
+const DAC_WATER_M3_PER_TCO2 = 1.6;
+const DAC_WATER_M3_PER_MW_YEAR = 160;
+const DAC_RELEASE_TEMP_C = 65;
+
+const TREVI_L_PER_MW_YEAR_RANGE = { min: 255_000_000, max: 365_000_000 };
+const TREVI_M3_PER_MW_YEAR_MID =
+  (TREVI_L_PER_MW_YEAR_RANGE.min + TREVI_L_PER_MW_YEAR_RANGE.max) / 2 / L_PER_M3;
+
 const URAVU_L_PER_MW_YEAR_RANGE = { min: 2_000_000, max: 15_000_000 };
-// ...rest of the code from app/v3/page.tsx...
 const URAVU_M3_PER_MW_YEAR_MID =
   (URAVU_L_PER_MW_YEAR_RANGE.min + URAVU_L_PER_MW_YEAR_RANGE.max) / 2 / L_PER_M3;
 

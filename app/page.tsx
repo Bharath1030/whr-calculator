@@ -1,8 +1,8 @@
 ﻿"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import offData from "../../data/offtaker_costs.json";
-import dcConfigData from "../../data/dc_cooling_config.json";
+import offData from "./data/offtaker_costs.json";
+import dcConfigData from "./data/dc_cooling_config.json";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 

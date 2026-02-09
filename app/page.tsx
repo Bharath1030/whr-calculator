@@ -6,6 +6,7 @@ import dcConfigData from "../data/dc_cooling_config.json";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
+const URAVU_L_PER_MW_YEAR_RANGE = { min: 2_000_000, max: 15_000_000 };
 // ...rest of the code from app/v3/page.tsx...
 const URAVU_M3_PER_MW_YEAR_MID =
   (URAVU_L_PER_MW_YEAR_RANGE.min + URAVU_L_PER_MW_YEAR_RANGE.max) / 2 / L_PER_M3;

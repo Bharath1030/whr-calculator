@@ -38,3 +38,25 @@ body {
 .border-slate-200 {
   border-color: var(--border-color) !important;
 }
+
+.summary-no-marker {
+  list-style: none;
+}
+.summary-no-marker::marker {
+  content: "";
+}
+.summary-no-marker::-webkit-details-marker {
+  display: none;
+}
+
+.summary-caret {
+  display: inline-block;
+  width: 0.75rem;
+  color: #64748b;
+  transform: rotate(0deg);
+  transition: transform 150ms ease;
+}
+
+details[open] .summary-caret {
+  transform: rotate(90deg);
+}

@@ -25,6 +25,16 @@ const OFFTAKE_LABEL: Record<Offtake, string> = {
   dac: "Direct Air Capture (DAC)",
 };
 
+const OFFTAKE_HELP: Record<Offtake, string> = {
+  hotWater: "Offsets conventional heating; stabilizes heat recovery value for the DC; supports local hot-water needs.",
+  districtHeat: "Supplies low-carbon heat to buildings; improves DC efficiency economics; lowers community heating emissions.",
+  waterTreatmentFO: "Provides process heat for treatment; creates operating savings for the DC; expands clean-water capacity locally.",
+  atmosphericWater: "Enables water capture systems; reduces DC heat rejection costs; adds resilient community water supply.",
+  greenhouses: "Supports year-round crops; raises DC heat utilization; strengthens local food systems and jobs.",
+  foodBrewery: "Feeds process heat demand; increases DC heat monetization; reduces industrial fuel use nearby.",
+  dac: "Powers CO2 removal; boosts DC climate impact; delivers community-scale carbon benefits.",
+};
+
 type Range = { min: number; max: number };
 
 // --------------------
@@ -179,6 +189,8 @@ function Card({
   defaultExpanded = false,
   forceExpanded,
   tooltip,
+  titleClassName,
+  headerClassName,
 }: {
   title: string;
   children: React.ReactNode;
@@ -187,6 +199,8 @@ function Card({
   defaultExpanded?: boolean;
   forceExpanded?: boolean;
   tooltip?: string;
+  titleClassName?: string;
+  headerClassName?: string;
 }) {
   const [isExpanded, setIsExpanded] = useState(
     collapsible ? defaultExpanded : true
@@ -201,7 +215,7 @@ function Card({
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div 
-        className={`flex items-start justify-between gap-4 ${collapsible ? 'cursor-pointer select-none' : ''}`}
+        className={`flex items-start justify-between gap-4 ${collapsible ? 'cursor-pointer select-none' : ''} ${headerClassName ?? ''}`}
         onClick={() => collapsible && setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-2 flex-1" title={tooltip}>
@@ -215,7 +229,9 @@ function Card({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           )}
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+          <h2 className={`text-base font-semibold text-slate-900 ${titleClassName ?? ""}`}>
+            {title}
+          </h2>
           {tooltip ? (
             <svg
               className="ml-1 h-4 w-4 text-slate-500"
@@ -235,7 +251,7 @@ function Card({
         </div>
         {right ? <div onClick={(e) => collapsible && e.stopPropagation()}>{right}</div> : null}
       </div>
-      {isExpanded && <div className="mt-4">{children}</div>}
+      {isExpanded && children ? <div className="mt-4">{children}</div> : null}
     </section>
   );
 }
@@ -682,7 +698,13 @@ export default function Page() {
   const [activeSection, setActiveSection] = useState<string>("");
 
   useEffect(() => {
+    if (window.location.hash) {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      setActiveSection("");
+      window.scrollTo({ top: 0 });
+    }
     const update = () => setActiveSection(window.location.hash.replace("#", ""));
+    update();
     window.addEventListener("hashchange", update);
     return () => window.removeEventListener("hashchange", update);
   }, []);
@@ -2146,37 +2168,37 @@ export default function Page() {
 
   return (
     <main className="mx-auto max-w-5xl p-6 font-sans">
-      {/* Microsoft Confidential Banner */}
-      <div className="mb-6 bg-red-100 border-2 border-red-600 rounded-lg p-4">
-        <p className="text-red-900 font-bold text-center">
-          🔒 MICROSOFT CONFIDENTIAL
-        </p>
-        <p className="text-red-800 text-sm text-center mt-2">
-          This calculator provides order-of-magnitude estimates for feasibility screening only. Project-specific engineering, climate data, and vendor quotes are required for investment decisions.
-        </p>
+      {/* Microsoft Confidential Banner - Improved for mobile and desktop */}
+      <div className="mb-6 border-2 border-red-600 rounded-xl bg-red-100 p-4 flex flex-col items-center text-center shadow-md">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xl md:text-2xl">🔒</span>
+          <span className="font-bold text-red-900 text-base md:text-xl tracking-wide">MICROSOFT CONFIDENTIAL</span>
+        </div>
+        <div className="text-red-800 text-xs md:text-sm font-medium">
+          This calculator provides order-of-magnitude estimates for feasibility screening only.<br className="hidden md:block" /> Project-specific engineering, climate data, and vendor quotes are required for investment decisions.
+        </div>
       </div>
 
-      <div className="flex justify-between items-start mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+      {/* Heading and action buttons - Responsive layout */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-6 gap-3">
+        <div className="flex-1">
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 mb-1 text-center sm:text-left">
             Waste Heat Reuse (WHR) Calculator
           </h1>
-          <p className="mt-1 text-slate-600">
+          <p className="text-xs md:text-sm text-slate-600 text-center sm:text-left">
             Clean output cards + normalized metrics + CO₂ chart. DC facility temperature influences offtake performance.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => {
               const target = document.getElementById("whr-faq");
               if (!target) return;
               const start = window.scrollY;
               const end = target.getBoundingClientRect().top + window.scrollY - 12;
-              const durationMs = 2000;
+              const durationMs = 1200;
               const startTime = performance.now();
-
               const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-
               const step = (now: number) => {
                 const elapsed = now - startTime;
                 const t = Math.min(1, elapsed / durationMs);
@@ -2184,17 +2206,16 @@ export default function Page() {
                 window.scrollTo({ top: next });
                 if (t < 1) requestAnimationFrame(step);
               };
-
               requestAnimationFrame(step);
             }}
-            className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-sm font-medium whitespace-nowrap"
+            className="w-full sm:w-auto px-3 py-2 rounded-lg border border-blue-600 bg-blue-50 text-blue-700 font-semibold text-sm shadow-sm hover:bg-blue-100 transition-colors"
           >
             ⬇️ Jump to FAQ
           </button>
           <button
             onClick={generatePDF}
             disabled={!offtake}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-sm font-medium whitespace-nowrap"
+            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-sm shadow-sm transition-colors"
           >
             📥 Download PDF Report
           </button>
@@ -2425,18 +2446,33 @@ export default function Page() {
 
         {/* RIGHT COLUMN: Offtake Selector + Inputs */}
         <div className="space-y-6">
-          <Card title="Offtake application" right={<span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">V1</span>}>
-            <select
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-              value={offtake}
-              onChange={(e) => setOfftake(e.target.value as Offtake)}
-            >
-              {Object.entries(OFFTAKE_LABEL).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
+          <Card
+            title="WHR Offtake Application"
+            titleClassName="whitespace-nowrap"
+            tooltip="Hover this card to see how each offtake helps the offtaker, the DC, and the community."
+          >
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-700">
+                Choose an offtake application
+              </label>
+              <select
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                value={offtake}
+                onChange={(e) => setOfftake(e.target.value as Offtake)}
+              >
+                {Object.entries(OFFTAKE_LABEL).map(([k, v]) => {
+                  const key = k as Offtake;
+                  return (
+                    <option key={k} value={k} title={OFFTAKE_HELP[key]}>
+                      {v}
+                    </option>
+                  );
+                })}
+              </select>
+              <div className="text-[11px] leading-snug text-slate-600">
+                Note: {OFFTAKE_HELP[offtake]}
+              </div>
+            </div>
           </Card>
 
           <div id="whr-inputs">
@@ -3722,7 +3758,7 @@ export default function Page() {
                 <ul className="list-disc list-inside space-y-1 ml-2">
                   <li>Waste Water Treatment Systems: Industry datasheet (LCOW, CapEx verified against 2024 quotes)</li>
                   <li>Atmospheric Water Capture Systems: Mid-market estimate; validation pending</li>
-                  <li>Regional electricity costs: US EIA state commercial prices (2024, cents/kWh) and GlobalPetrolPrices.com business averages for Europe (2023-2025, USD/kWh)</li>
+                  <li>Regional electricity costs: GlobalPetrolPrices.com business averages (2023-2025, USD/kWh)</li>
                   <li>Grid carbon intensity: Ember (2026) via Our World in Data (2025 lifecycle g CO2e/kWh); US uses EIA 2023 CO2 per kWh</li>
                   <li>PUE improvements: ASHRAE Technical Committee DTG recommendations</li>
                 </ul>

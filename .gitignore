@@ -51,3 +51,4 @@ next-env.d.ts
 
 # large media not needed in repo
 /data/**/*.mp4
+/data/**/*.pdf
